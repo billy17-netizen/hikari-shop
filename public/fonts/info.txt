@@ -1,0 +1,8 @@
+This is a placeholder for the PP Monument Extended font.
+
+In a production environment, you should:
+1. Purchase the proper license for PP Monument Extended from Pangram Pangram Foundry
+2. Add the correct font files to this directory
+3. Update the path in the layout.tsx file if needed
+
+For now, the site will fall back to system fonts. 

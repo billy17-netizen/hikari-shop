@@ -1,0 +1,44 @@
+/* Drawer styles */
+.drawer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  z-index: 9999;
+}
+
+.drawer__backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 9998;
+}
+
+.drawer__content {
+  position: relative;
+  background-color: white;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  z-index: 9999;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.drawer__handle-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0;
+}
+
+.drawer__handle {
+  width: 40px;
+  height: 4px;
+  background-color: #e5e5e5;
+  border-radius: 2px;
+} 

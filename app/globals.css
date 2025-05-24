@@ -1,0 +1,291 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Critical styles that load immediately to prevent flashing */
+header.site-header {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  background-color: transparent !important;
+}
+
+header.site-header[data-ready="true"] {
+  visibility: visible !important;
+  opacity: 1 !important;
+  transition: opacity 0.3s ease, transform 0.3s ease, background-color 0.4s ease, color 0.4s ease !important;
+  /* Remove any forced background override to allow normal header styling */
+  background-color: initial !important;
+}
+
+/* Floating header styles that apply when scrolling or on non-home pages */
+header.site-header.header-floating[data-ready="true"] {
+  background-color: white !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Transparent header only for home page at top */
+header.site-header.header-transparent[data-ready="true"] {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Home page styles - keep dark background initially */
+body.page-loaded[data-page="home"] {
+  background-color: #ffffff !important;
+}
+
+/* Non-home page styles - use white background */
+body.page-loaded:not([data-page="home"]) {
+  background-color: #ffffff !important;
+}
+
+/* Set dark background by default to prevent white flashes */
+html, body {
+  background-color: #000000 !important;
+}
+
+/* Only after the page is fully loaded, use the actual background color */
+body.page-loaded {
+  background-color: #ffffff !important;
+}
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 255, 255, 255;
+  --background-end-rgb: 255, 255, 255;
+}
+
+/* ScrollSmoother styles */
+html.has-smooth-scroll {
+  overflow: hidden;
+}
+
+html.has-smooth-scroll body {
+  overflow: hidden;
+}
+
+/* Important: These styles ensure proper scrolling with ScrollSmoother */
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: visible; /* Ensure native scrolling works until ScrollSmoother takes over */
+  width: 100%;
+  height: 100%;
+}
+
+#smooth-wrapper {
+  position: relative; /* Changed from fixed to relative */
+  width: 100%;
+  overflow: hidden;
+}
+
+#smooth-content {
+  width: 100%;
+  /* No fixed height to allow content to determine scroll length */
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-start-rgb));
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+  }
+  
+  /* Ensure fonts are properly applied */
+  .font-monument {
+    font-family: var(--font-monument), sans-serif !important;
+  }
+  
+  .font-karla {
+    font-family: var(--font-karla), sans-serif !important;
+  }
+}
+
+@layer components {
+  .container {
+    @apply px-4 mx-auto max-w-[1200px];
+  }
+  
+  .btn {
+    @apply inline-block py-3 px-6 rounded-md transition-colors duration-300;
+  }
+  
+  .btn-primary {
+    @apply bg-black text-white hover:bg-pink-500;
+  }
+  
+  .btn-outline {
+    @apply border border-black text-black hover:bg-black hover:text-white;
+  }
+}
+
+/* Override default focus styles */
+*:focus-visible {
+  @apply outline-pink-500 outline-2;
+}
+
+/* Custom font styles for serif text */
+.font-serif {
+  font-family: 'Georgia', serif;
+}
+
+/* Add smooth reveal animations for elements coming into view */
+.reveal {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.5s, visibility 0.5s;
+}
+
+.reveal.is-inview {
+  opacity: 1;
+  visibility: visible;
+} 
+
+@layer utilities {
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  /* Toast notification animations */
+  @keyframes slideInRight {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  @keyframes slideOutRight {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+  }
+  
+  .animate-enter {
+    animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  .animate-leave {
+    animation: slideOutRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  /* Mobile action sheet positioning */
+  .mobile-action-sheet-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 9999;
+    background-color: rgba(0, 0, 0, 0.5);
+    transition: opacity 0.3s ease;
+  }
+  
+  .mobile-action-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 75vh;
+    border-top-left-radius: 1rem;
+    border-top-right-radius: 1rem;
+    background: white;
+    z-index: 10000;
+    transform: translateY(0);
+    transition: transform 0.3s ease-out;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    will-change: transform;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  }
+  
+  .mobile-action-sheet.hidden {
+    transform: translateY(100%);
+  }
+  
+  /* Mobile modal styles */
+  .mobile-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: block;
+    z-index: 9999;
+    background-color: rgba(0, 0, 0, 0.5);
+    transition: opacity 0.3s ease;
+  }
+  
+  .mobile-modal {
+    position: absolute;
+    width: 85%;
+    max-width: 350px;
+    max-height: 85vh;
+    background: white;
+    border-radius: 0.75rem;
+    z-index: 10000;
+    transition: transform 0.3s ease-out, opacity 0.3s ease;
+    will-change: transform, opacity;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+  }
+  
+  /* Add slide animation keyframes */
+  @keyframes slideInRight {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  
+  .slide-in-right {
+    animation: slideInRight 0.3s ease-out forwards;
+  }
+}
+
+/* React Responsive Modal Custom Styles */
+.customModal {
+  max-width: 800px;
+  width: 90%;
+  border-radius: 4px;
+  padding: 0;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  font-family: var(--font-karla);
+}
+
+.customOverlay {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.customCloseButton {
+  top: 10px;
+  right: 10px;
+  background: white;
+  border-radius: 50%;
+  padding: 5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+} 

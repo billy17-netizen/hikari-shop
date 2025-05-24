@@ -1,0 +1,511 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
+import Link from 'next/link';
+import toast from 'react-hot-toast';
+
+interface OrderItem {
+  id: string;
+  productId: string;
+  productName: string;
+  productImage: string;
+  quantity: number;
+  price: string;
+  selectedColor?: string | null;
+  selectedSize?: string | null;
+  formattedPrice?: string;
+}
+
+interface OrderDetail {
+  id: string;
+  customerId: string;
+  customerName: string;
+  customerEmail: string;
+  status: string;
+  total: string;
+  subtotal: string;
+  shipping: string;
+  tax: string;
+  items: OrderItem[];
+  paymentMethod: string;
+  paymentId?: string;
+  createdAt: string;
+  updatedAt: string;
+  shippingAddress: {
+    name: string;
+    phone: string;
+    address: string;
+    city: string;
+    province: string;
+    postalCode: string;
+    country: string;
+  };
+}
+
+export default function OrderDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const { id } = params;
+  
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [order, setOrder] = useState<OrderDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [statusUpdateLoading, setStatusUpdateLoading] = useState<boolean>(false);
+  
+  // Add state for confirmation modal
+  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
+  const [pendingStatusUpdate, setPendingStatusUpdate] = useState<string | null>(null);
+  
+  // Helper function to format currency
+  const formatCurrency = (amount: number | string): string => {
+    const numericAmount = typeof amount === 'string' 
+      ? parseFloat(amount.replace(/[^0-9.-]+/g, '')) 
+      : amount;
+    
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(numericAmount);
+  };
+  
+  // Helper function to calculate item total
+  const calculateItemTotal = (price: string | number, quantity: number): string => {
+    let numericPrice: number;
+    
+    if (typeof price === 'string') {
+      numericPrice = parseFloat(price.replace(/[^0-9.-]+/g, ''));
+    } else {
+      numericPrice = price;
+    }
+    
+    return formatCurrency(numericPrice * quantity);
+  };
+  
+  // Helper function to ensure image URL is properly formatted
+  const getImageUrl = (imageUrl: string): string => {
+    if (!imageUrl) return '/images/placeholder-product.jpg';
+    
+    // If it's already an absolute URL or starts with a slash, return as is
+    if (imageUrl.startsWith('http') || imageUrl.startsWith('/')) {
+      return imageUrl;
+    }
+    
+    // Otherwise, assume it's a relative path to the products folder
+    return `/uploads/products/${imageUrl}`;
+  };
+  
+  useEffect(() => {
+    async function fetchOrderDetails() {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`/api/admin/orders/${id}`);
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            setError('Order not found');
+          } else {
+            setError('Failed to fetch order details');
+          }
+          return;
+        }
+        
+        const data = await response.json();
+        setOrder(data);
+      } catch (error) {
+        console.error('Error fetching order details:', error);
+        setError('An error occurred while fetching order details');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    if (id) {
+      fetchOrderDetails();
+    }
+  }, [id]);
+  
+  // Helper function to get status badge color
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'pending':
+      case 'awaiting_payment':
+        return 'bg-amber-100 text-amber-800';
+      case 'processing':
+      case 'shipped':
+        return 'bg-blue-100 text-blue-800';
+      case 'completed':
+      case 'delivered':
+      case 'success':
+      case 'paid':
+        return 'bg-green-100 text-green-800';
+      case 'cancelled':
+      case 'failed':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+  
+  const handleStatusChange = (newStatus: string) => {
+    setPendingStatusUpdate(newStatus);
+    setShowConfirmModal(true);
+  };
+  
+  const confirmStatusUpdate = async () => {
+    if (!pendingStatusUpdate) return;
+    
+    const toastId = toast.loading(`Updating order status to ${pendingStatusUpdate}...`);
+    
+    try {
+      setStatusUpdateLoading(true);
+      const response = await fetch(`/api/admin/orders/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: pendingStatusUpdate }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update order status');
+      }
+      
+      const data = await response.json();
+      setOrder(prev => prev ? { ...prev, status: pendingStatusUpdate } : null);
+      
+      toast.success(`Order status updated to ${pendingStatusUpdate}`, { id: toastId });
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      toast.error('Failed to update order status', { id: toastId });
+    } finally {
+      setStatusUpdateLoading(false);
+      setShowConfirmModal(false);
+      setPendingStatusUpdate(null);
+    }
+  };
+  
+  const cancelStatusUpdate = () => {
+    setShowConfirmModal(false);
+    setPendingStatusUpdate(null);
+  };
+  
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <div className="flex flex-col items-center">
+          <svg className="animate-spin h-8 w-8 text-neutral-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span className="text-neutral-500">Loading order details...</span>
+        </div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh]">
+        <div className="text-red-500 mb-4">{error}</div>
+        <button
+          onClick={() => router.back()}
+          className="px-4 py-2 bg-neutral-900 text-white rounded-sm"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
+  
+  if (!order) {
+    return null;
+  }
+  
+  const getStatusOptions = () => {
+    const allStatuses = [
+      'pending', 
+      'awaiting_payment', 
+      'processing', 
+      'shipped', 
+      'delivered', 
+      'completed', 
+      'cancelled', 
+      'failed'
+    ];
+    
+    return allStatuses;
+  };
+  
+  return (
+    <div className="py-4">
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-monument mb-2">Order Details</h1>
+          <p className="text-neutral-500">Order #{order.id}</p>
+        </div>
+        <button
+          onClick={() => router.back()}
+          className="px-4 py-2 border border-neutral-300 text-neutral-700 rounded-sm hover:bg-neutral-50"
+        >
+          Back
+        </button>
+      </div>
+      
+      {/* Order Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {/* Order Info */}
+        <div className="bg-white p-6 rounded-sm shadow-sm border border-neutral-200">
+          <h2 className="font-medium mb-4">Order Information</h2>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-neutral-500">Order ID:</span>
+              <span className="font-medium">{order.id}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-neutral-500">Date:</span>
+              <span>{order.createdAt}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-neutral-500">Status:</span>
+              <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadgeClass(order.status)}`}>
+                {order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', ' ')}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-neutral-500">Payment Method:</span>
+              <span>{order.paymentMethod}</span>
+            </div>
+            {order.paymentId && (
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Payment ID:</span>
+                <span className="text-sm">{order.paymentId}</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="mt-6">
+            <label className="block text-sm font-medium text-neutral-700 mb-2">
+              Update Status
+            </label>
+            <div className="flex">
+              <select 
+                value={order.status}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                disabled={statusUpdateLoading}
+                className="block w-full border border-neutral-300 rounded-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+              >
+                {getStatusOptions().map(status => (
+                  <option key={status} value={status}>
+                    {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+                  </option>
+                ))}
+              </select>
+              {statusUpdateLoading && (
+                <div className="ml-2 flex items-center">
+                  <svg className="animate-spin h-5 w-5 text-neutral-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Customer Info */}
+        <div className="bg-white p-6 rounded-sm shadow-sm border border-neutral-200">
+          <h2 className="font-medium mb-4">Customer Information</h2>
+          <div className="space-y-3">
+            <div>
+              <span className="text-neutral-500 block">Name:</span>
+              <span className="font-medium">{order.customerName}</span>
+            </div>
+            <div>
+              <span className="text-neutral-500 block">Email:</span>
+              <span>{order.customerEmail}</span>
+            </div>
+            <div className="pt-2">
+              <Link 
+                href={`/admin/customers/${order.customerId}`}
+                className="text-indigo-600 hover:text-indigo-900 text-sm"
+              >
+                View Customer Profile
+              </Link>
+            </div>
+          </div>
+        </div>
+        
+        {/* Shipping Info */}
+        <div className="bg-white p-6 rounded-sm shadow-sm border border-neutral-200">
+          <h2 className="font-medium mb-4">Shipping Information</h2>
+          <div className="space-y-1">
+            <p className="font-medium">{order.shippingAddress.name}</p>
+            <p>{order.shippingAddress.phone}</p>
+            <p>{order.shippingAddress.address}</p>
+            <p>{order.shippingAddress.city}, {order.shippingAddress.province} {order.shippingAddress.postalCode}</p>
+            <p>{order.shippingAddress.country}</p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Order Items */}
+      <div className="bg-white rounded-sm shadow-sm border border-neutral-200 overflow-hidden mb-6">
+        <h2 className="font-medium p-6 border-b border-neutral-200">Order Items</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-neutral-200">
+            <thead className="bg-neutral-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                  Product
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                  Options
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                  Price
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                  Quantity
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-neutral-200">
+              {order.items.map((item) => (
+                <tr key={item.id} className="hover:bg-neutral-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0 h-12 w-12 relative border border-neutral-200 rounded overflow-hidden">
+                        <Image 
+                          src={getImageUrl(item.productImage)} 
+                          alt={item.productName}
+                          width={48}
+                          height={48}
+                          className="object-cover w-full h-full"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.src = '/images/placeholder-product.jpg';
+                            console.log('Image error, using placeholder for:', item.productName);
+                          }}
+                          priority={true}
+                          unoptimized={true}
+                        />
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-neutral-900">
+                          {item.productName}
+                        </div>
+                        <div className="text-xs text-neutral-500">
+                          ID: {item.productId}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                    {item.selectedColor && (
+                      <div className="mb-1">
+                        Color: <span className="font-medium">{item.selectedColor}</span>
+                      </div>
+                    )}
+                    {item.selectedSize && (
+                      <div>
+                        Size: <span className="font-medium">{item.selectedSize}</span>
+                      </div>
+                    )}
+                    {!item.selectedColor && !item.selectedSize && (
+                      <span>-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                    {item.formattedPrice || formatCurrency(item.price)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                    {item.quantity}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    {calculateItemTotal(item.price, item.quantity)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      {/* Order Summary */}
+      <div className="bg-white rounded-sm shadow-sm border border-neutral-200 overflow-hidden">
+        <h2 className="font-medium p-6 border-b border-neutral-200">Order Summary</h2>
+        <div className="p-6">
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-neutral-500">Subtotal:</span>
+              <span>{order.subtotal}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-neutral-500">Shipping:</span>
+              <span>{order.shipping}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-neutral-500">Tax:</span>
+              <span>{order.tax}</span>
+            </div>
+            <div className="border-t border-neutral-200 pt-2 mt-2">
+              <div className="flex justify-between font-medium">
+                <span>Total:</span>
+                <span>{order.total}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Confirmation Modal */}
+      {showConfirmModal && pendingStatusUpdate && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-sm shadow-lg max-w-md w-full">
+            <div className="border-b border-neutral-200 px-6 py-4">
+              <h3 className="text-lg font-medium">Confirm Status Update</h3>
+            </div>
+            <div className="p-6">
+              <p>Are you sure you want to change the order status to:</p>
+              <p className="font-medium text-lg mt-2">
+                {pendingStatusUpdate.charAt(0).toUpperCase() + pendingStatusUpdate.slice(1).replace('_', ' ')}
+              </p>
+              
+              <div className="mt-6 flex justify-end space-x-3">
+                <button 
+                  onClick={cancelStatusUpdate}
+                  className="px-4 py-2 border border-neutral-300 text-neutral-700 text-sm rounded-sm hover:bg-neutral-50"
+                  disabled={statusUpdateLoading}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={confirmStatusUpdate}
+                  className="px-4 py-2 bg-neutral-900 text-white text-sm rounded-sm hover:bg-neutral-800"
+                  disabled={statusUpdateLoading}
+                >
+                  {statusUpdateLoading ? (
+                    <div className="flex items-center">
+                      <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Updating...
+                    </div>
+                  ) : 'Confirm'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+} 
